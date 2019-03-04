@@ -5,6 +5,7 @@ from collections import namedtuple, deque
 from model import QNetwork
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
@@ -42,6 +43,9 @@ class Agent():
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, seed)
         # Initialize time step (for updating every UPDATE_EVERY steps)
         self.t_step = 0
+        
+        # Loss
+        self.criterion = nn.MSELoss()
     
     def step(self, state, action, reward, next_state, done):
         # Save experience in replay memory
@@ -80,13 +84,26 @@ class Agent():
 
         Params
         ======
-            experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
+            experiences (Tuple[torch.Variable]): tuple of (s, a, r, s', done) tuples 
             gamma (float): discount factor
         """
         states, actions, rewards, next_states, dones = experiences
-
-        ## TODO: compute and minimize the loss
-        "*** YOUR CODE HERE ***"
+        
+        self.qnetwork_target.eval()
+        with torch.no_grad():
+            next_q_values, _ = self.qnetwork_target(next_states).max(dim=1)
+            next_q_values = next_q_values.unsqueeze(1)
+            next_q_values = next_q_values * (1 - dones)
+            
+        Q_targets = rewards + gamma * next_q_values
+        
+        # Get Q-value of states, actions pair
+        Q_expected = self.qnetwork_local(states).gather(dim=1, index=actions)
+        loss = self.criterion(Q_expected, Q_targets)
+        
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
         # ------------------- update target network ------------------- #
         self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)                     
