@@ -102,3 +102,7 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# Project
+p1_navigation/Banana.app.zip
+p1_navigation/Banana.app
