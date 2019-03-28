@@ -1,6 +1,7 @@
 import numpy as np
 import random
 from collections import namedtuple, deque
+from abc import ABCMeta, abstractmethod
 
 from model import QNetwork
 
@@ -12,9 +13,10 @@ import torch.optim as optim
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-class DQNAgent(object):
-    """Interacts with and learns from the environment."""
 
+class AbstractAgent(metaclass=ABCMeta):
+    """Abstract Base Agent"""
+    
     def __init__(self, state_size, action_size, memory, seed, configs):
         """Initialize an Agent object.
         
@@ -58,7 +60,7 @@ class DQNAgent(object):
             # If enough samples are available in memory, get random subset and learn
             if len(self.memory) > self.batch_size:
                 experiences = self.memory.sample()
-                self.learn(experiences, self.gamma)
+                self._learn(experiences, self.gamma)
 
     def act(self, state, eps=0.):
         """Returns actions for given state as per current policy.
@@ -79,8 +81,28 @@ class DQNAgent(object):
             return np.argmax(action_values.cpu().data.numpy())
         else:
             return random.choice(np.arange(self.action_size))
+    
+    def soft_update(self, local_model, target_model, tau):
+        """Soft update model parameters.
+        θ_target = τ*θ_local + (1 - τ)*θ_target
+        Params
+        ======
+            local_model (PyTorch model): weights will be copied from
+            target_model (PyTorch model): weights will be copied to
+            tau (float): interpolation parameter 
+        """
+        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+            target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
+    
+    @abstractmethod
+    def _learn(self, experiences, gamma):
+        raise NotImplementedError
+        
+    
+class DQNAgent(AbstractAgent):
+    """Interacts with and learns from the environment."""
 
-    def learn(self, experiences, gamma):
+    def _learn(self, experiences, gamma):
         """Update value parameters using given batch of experience tuples.
         Params
         ======
@@ -106,16 +128,42 @@ class DQNAgent(object):
         self.optimizer.step()
 
         # ------------------- update target network ------------------- #
-        self.soft_update(self.qnetwork_local, self.qnetwork_target, self.tau)                     
+        self.soft_update(self.qnetwork_local, self.qnetwork_target, self.tau)
 
-    def soft_update(self, local_model, target_model, tau):
-        """Soft update model parameters.
-        θ_target = τ*θ_local + (1 - τ)*θ_target
+
+class DoubleDQNAgent(AbstractAgent):
+    def _learn(self, experiences, gamma):
+        """Update value parameters using given batch of experience tuples.
         Params
         ======
-            local_model (PyTorch model): weights will be copied from
-            target_model (PyTorch model): weights will be copied to
-            tau (float): interpolation parameter 
+            experiences (Tuple[torch.Variable]): tuple of (s, a, r, s', done) tuples 
+            gamma (float): discount factor
         """
-        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
-            target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
+        states, actions, rewards, next_states, dones = experiences
+        
+        self.qnetwork_target.eval()
+        with torch.no_grad():
+            next_best_actions = self._get_best_actions(next_states)
+            next_q_values = self.qnetwork_target(next_states).gather(dim=1, index=next_best_actions)
+            next_q_values = next_q_values * (1 - dones)
+            
+        Q_targets = rewards + gamma * next_q_values
+        
+        # Get Q-value of states, actions pair
+        Q_expected = self.qnetwork_local(states).gather(dim=1, index=actions)
+        loss = self.criterion(Q_expected, Q_targets)
+        
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # ------------------- update target network ------------------- #
+        self.soft_update(self.qnetwork_local, self.qnetwork_target, self.tau)
+    
+    def _get_best_actions(self, next_states):
+        self.qnetwork_local.eval()
+        with torch.no_grad():
+            _, next_best_actions = self.qnetwork_local(next_states).max(dim=1)
+            next_best_actions = next_best_actions.unsqueeze(1)
+        self.qnetwork_local.train()
+        return next_best_actions
