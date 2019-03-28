@@ -12,7 +12,7 @@ import torch.optim as optim
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-class Agent(object):
+class DQNAgent(object):
     """Interacts with and learns from the environment."""
 
     def __init__(self, state_size, action_size, memory, seed, configs):

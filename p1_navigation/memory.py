@@ -1,13 +1,25 @@
-import torch
+from abc import ABCMeta, abstractmethod
+from collections import namedtuple, deque
 
+import torch
 import numpy as np
 import random
-from collections import namedtuple, deque
+
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-class ReplayBuffer:
+class AbstractMemory(metaclass=ABCMeta):
+    @abstractmethod
+    def add(self, state, action, reward, next_state, done):
+        raise NotImplementedError
+            
+    @abstractmethod
+    def sample(self):
+        raise NotImplementedError
+
+
+class ReplayBuffer(AbstractMemory):
     """Fixed-size buffer to store experience tuples."""
 
     def __init__(self, action_size, buffer_size, batch_size, seed):
