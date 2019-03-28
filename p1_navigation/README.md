@@ -35,6 +35,14 @@ The task is episodic, and in order to solve the environment, agent must get an a
 
 2. Place the file in the DRLND GitHub repository, in the `p1_navigation/` folder, and unzip (or decompress) the file. 
 
+3. Execute following commands to run
+```bash
+cd deep-reinforcement-learning/n1_navigation
+source activate drlnd
+jupyter notebook
+```
+4. On browser, select `Navigation.ipynb`
+
 ### Instructions
 
 Follow the instructions in `Navigation.ipynb` to get started with training your own agent!  
