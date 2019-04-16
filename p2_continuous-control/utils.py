@@ -2,7 +2,8 @@ import numpy as np
 
 
 def calculate_future_rewards(rewards, gamma):
-    """rewards' shape is [max_episode_length * batch_size]"""
+    """rewards' is list of episodes where length of list is max_episode_length.
+    And each elements is rewards of each batches. So, shape of the rewards becomes [max_episode_length, batch_size]"""
     discounts = gamma ** np.arange(len(rewards))
     discounted_rewards = np.asarray(rewards) * discounts[:, np.newaxis]
     future_rewards = discounted_rewards[::-1].cumsum(axis=0)[::-1]
