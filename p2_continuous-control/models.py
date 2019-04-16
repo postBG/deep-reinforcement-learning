@@ -24,4 +24,4 @@ class SimpleActorModel(nn.Module):
         """Build a network that maps state -> action probabilities."""
         h = F.relu(self.fc1(state))
         h = F.relu(self.fc2(h))
-        return self.fc3(h)
+        return F.tanh(self.fc3(h))  # all actions between -1 and 1
