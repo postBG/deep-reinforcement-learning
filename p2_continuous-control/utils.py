@@ -46,7 +46,8 @@ def collect_trajectories(env, actor, tmax=2049):
     old_log_probs = []
     reward_list = []
 
-    env_info = env.reset()[brain_name]  # reset the environment
+    # reset the environment
+    env_info = env.reset()[brain_name]
 
     for t in range(tmax):
         # probs will only be used as the pi_old
@@ -75,4 +76,4 @@ def collect_trajectories(env, actor, tmax=2049):
             break
 
     # return pi_theta, states, actions, rewards, probability
-    return state_list, action_list, old_log_probs, reward_list
+    return np.asarray(state_list), np.asarray(action_list), np.asarray(old_log_probs), np.asarray(reward_list)
