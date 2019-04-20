@@ -49,6 +49,8 @@ def collect_trajectories(env, actor, tmax=2049):
     # reset the environment
     env_info = env.reset()[brain_name]
 
+    is_train = actor.training
+    actor.eval()
     for t in range(tmax):
         # probs will only be used as the pi_old
         # no gradient propagation is needed
@@ -74,6 +76,9 @@ def collect_trajectories(env, actor, tmax=2049):
         # we want all the lists to be retangular
         if np.any(env_info.local_done):
             break
+
+    if is_train:
+        actor.train()
 
     # return pi_theta, states, actions, rewards, probability
     return np.asarray(state_list), np.asarray(action_list), np.asarray(old_log_probs), np.asarray(reward_list)
