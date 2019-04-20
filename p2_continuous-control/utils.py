@@ -19,9 +19,9 @@ def batch_normalize(x):
     return (x - means[:, np.newaxis]) / stds[:, np.newaxis]
 
 
-def log_density(x, mu, std, logstd):
+def log_density(x, mu, std, log_std):
     var = std.pow(2)
-    log_dens = -(x - mu).pow(2) / (2 * var) - 0.5 * math.log(2 * math.pi) - logstd
+    log_dens = -(x - mu).pow(2) / (2 * var) - 0.5 * math.log(2 * math.pi) - log_std
     return log_dens.sum(1, keepdim=True)
 
 
@@ -34,6 +34,45 @@ def to_tensor(numpy_array):
 
 
 def sample_actions(mu, std):
-    actions = torch.normal(mu, std)
-    actions = actions.cpu().data.numpy()
-    return actions
+    return torch.clamp(torch.normal(mu, std), -1, 1)
+
+
+def collect_trajectories(env, actor, tmax=2049):
+    # get the default brain
+    brain_name = env.brain_names[0]
+
+    state_list = []
+    action_list = []
+    old_log_probs = []
+    reward_list = []
+
+    env_info = env.reset()[brain_name]  # reset the environment
+
+    for t in range(tmax):
+        # probs will only be used as the pi_old
+        # no gradient propagation is needed
+        # so we move it to the cpu
+        states = env_info.vector_observations
+        states_t = to_tensor(states)
+        with torch.no_grad():
+            mu_t, std_t, log_std_t = actor(states_t)
+            actions_t = sample_actions(mu_t, std_t)
+            actions_log_prob_t = log_density(actions_t, mu_t, std_t, log_std_t)
+            actions_log_prob = actions_log_prob_t.cpu().numpy()
+
+            actions = actions_t.cpu().numpy()
+            env_info = env.step(actions)[brain_name]
+
+        # store the result
+        state_list.append(states)
+        action_list.append(actions)
+        old_log_probs.append(actions_log_prob)
+        reward_list.append(env_info.rewards)
+
+        # stop if any of the trajectories is done
+        # we want all the lists to be retangular
+        if np.any(env_info.local_done):
+            break
+
+    # return pi_theta, states, actions, rewards, probability
+    return state_list, action_list, old_log_probs, reward_list
