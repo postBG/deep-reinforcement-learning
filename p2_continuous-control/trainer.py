@@ -51,9 +51,8 @@ class Trainer(object):
             for pe in range(self.ppo_epoches):
                 self.run_one_ppo_epoch(states, actions, old_log_probs, old_advantages, old_returns, self.ppo_eps)
 
-            if i_episode % 20 == 0:
+            if i_episode % 10 == 0:
                 print("Episode: {0:d}, Score last 100: {1:f}".format(i_episode, np.mean(last_100_mean_rewards)))
-                print(total_rewards)
 
             if np.mean(last_100_mean_rewards) >= 30.0:
                 print('Env solved in {:d} episodes!\tAvg. Score: {:.2f}'.format(i_episode - 100,
