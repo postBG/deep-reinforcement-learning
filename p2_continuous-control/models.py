@@ -32,10 +32,10 @@ class Actor(nn.Module):
         h = swish(self.fc1(state))
         h = swish(self.fc2(h))
         mu = self.fc3(h)
-        logstd = torch.zeros_like(mu)
-        std = torch.exp(logstd)
+        log_std = torch.zeros_like(mu)
+        std = torch.exp(log_std)
 
-        return mu, std, logstd
+        return mu, std, log_std
 
 
 class Critic(nn.Module):

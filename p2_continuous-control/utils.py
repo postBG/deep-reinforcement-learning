@@ -4,7 +4,7 @@ from itertools import accumulate as accum
 import torch
 import numpy as np
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 def accumulate(x, discount_rate=1):
@@ -26,59 +26,25 @@ def log_density(x, mu, std, log_std):
 
 
 def to_tensor_long(numpy_array):
-    return torch.LongTensor(numpy_array).to(device)
+    return torch.LongTensor(numpy_array).to(DEVICE)
 
 
 def to_tensor(numpy_array):
-    return torch.Tensor(numpy_array).to(device)
+    return torch.Tensor(numpy_array).to(DEVICE)
 
 
 def sample_actions(mu, std):
     return torch.clamp(torch.normal(mu, std), -1, 1)
 
 
-def collect_trajectories(env, actor, tmax=2049):
-    # get the default brain
-    brain_name = env.brain_names[0]
+def run_model_with_no_grad(model, inputs, to_numpy=False, eval_mode=True):
+    is_train = model.training
+    model = model.eval() if eval_mode else model.train()
 
-    state_list = []
-    action_list = []
-    old_log_probs = []
-    reward_list = []
+    with torch.no_grad():
+        outputs = model(inputs)
 
-    # reset the environment
-    env_info = env.reset()[brain_name]
-
-    is_train = actor.training
-    actor.eval()
-    for t in range(tmax):
-        # probs will only be used as the pi_old
-        # no gradient propagation is needed
-        # so we move it to the cpu
-        states = env_info.vector_observations
-        states_t = to_tensor(states)
-        with torch.no_grad():
-            mu_t, std_t, log_std_t = actor(states_t)
-            actions_t = sample_actions(mu_t, std_t)
-            actions_log_prob_t = log_density(actions_t, mu_t, std_t, log_std_t)
-            actions_log_prob = actions_log_prob_t.cpu().numpy()
-
-            actions = actions_t.cpu().numpy()
-            env_info = env.step(actions)[brain_name]
-
-        # store the result
-        state_list.append(states)
-        action_list.append(actions)
-        old_log_probs.append(actions_log_prob)
-        reward_list.append(env_info.rewards)
-
-        # stop if any of the trajectories is done
-        # we want all the lists to be retangular
-        if np.any(env_info.local_done):
-            break
-
-    if is_train:
-        actor.train()
-
-    # return pi_theta, states, actions, rewards, probability
-    return np.asarray(state_list), np.asarray(action_list), np.asarray(old_log_probs), np.asarray(reward_list)
+    model.train(mode=is_train)
+    if to_numpy:
+        outputs = outputs.cpu().numpy()
+    return outputs
