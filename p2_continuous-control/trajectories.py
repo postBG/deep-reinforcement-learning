@@ -7,10 +7,7 @@ from utils import to_tensor, run_model_with_no_grad, accumulate, batch_normalize
 def calculate_future_rewards(rewards, gamma):
     """rewards is list of episodes where length of list is max_episode_length.
     And each elements is rewards of each batches. So, shape of the rewards becomes [max_episode_length, batch_size]"""
-    discounts = gamma ** np.arange(len(rewards))
-    discounted_rewards = np.asarray(rewards) * discounts[:, np.newaxis]
-    future_rewards = discounted_rewards[::-1].cumsum(axis=0)[::-1]
-    return future_rewards
+    return accumulate(rewards, gamma)
 
 
 def calculate_td_errors(rewards, values, gamma):
@@ -28,12 +25,12 @@ def calculate_gae(rewards, values, gamma, lamb, normalize=True):
     td_errors = calculate_td_errors(rewards, values, gamma)
     discount_rate = gamma * lamb
     advantages = accumulate(td_errors, discount_rate)
+    future_returns = calculate_future_rewards(rewards, gamma)
 
     if normalize:
         advantages = batch_normalize(advantages)
 
-    estimated_returns = advantages + values
-    return advantages, estimated_returns
+    return advantages, future_returns
 
 
 class Trajectories(object):
@@ -59,8 +56,8 @@ class Trajectories(object):
         values = values.reshape(values.shape[:-1])
         advantages, returns = calculate_gae(self.rewards, values, gamma, lamb, normalize=normalize)
 
-        advantages = to_tensor(advantages) if as_tensor else advantages
-        returns = to_tensor(returns) if as_tensor else returns
+        advantages = to_tensor(advantages.copy()) if as_tensor else advantages
+        returns = to_tensor(returns.copy()) if as_tensor else returns
         return advantages, returns
 
     def total_rewards(self):

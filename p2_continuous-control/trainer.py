@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from losses import calculate_clipped_surrogate, entropy
+from losses import calculate_clipped_surrogate, calculate_entropy
 from trajectories import collect_trajectories
 from utils import DEVICE, log_density
 
@@ -49,13 +49,19 @@ class Trainer(object):
             states, actions, old_log_probs, rewards = trajectories.get_as_tensor()
             old_advantages, old_returns = trajectories.get_gae(self.critic, self.gamma, self.lamb, as_tensor=True)
 
+            sum_value_loss = 0
+            sum_policy_loss = 0
             for pe in range(self.ppo_epoches):
                 self.beta *= 0.995
-                self.run_one_ppo_epoch(states, actions, old_log_probs, old_advantages, old_returns,
-                                       self.ppo_eps, self.beta)
+                value_loss, policy_loss = self.run_one_ppo_epoch(states, actions, old_log_probs, old_advantages,
+                                                                 old_returns, self.ppo_eps, self.beta)
+                sum_value_loss += value_loss
+                sum_policy_loss += policy_loss
 
             if i_episode % 10 == 0:
-                print("Episode: {0:d}, Score last 100: {1:f}".format(i_episode, np.mean(last_100_mean_rewards)))
+                print('\rEpisode {}\tAverage Score: {:.2f}\tMean Value loss: {:.5f}\tMean policy loss {:.5f}'.format(
+                    i_episode, np.mean(last_100_mean_rewards),
+                    sum_value_loss / self.ppo_epoches, sum_policy_loss / self.ppo_epoches))
 
             if np.mean(last_100_mean_rewards) >= 30.0:
                 print('Env solved in {:d} episodes!\tAvg. Score: {:.2f}'.format(i_episode - 100,
@@ -94,10 +100,12 @@ class Trainer(object):
             new_log_probs = log_density(sampled_actions, mu, std, log_std)
             clipped_surrogate = calculate_clipped_surrogate(sampled_old_advantages, sampled_old_log_probs,
                                                             new_log_probs, epsilon)
-            loss_policy_v = -(clipped_surrogate + beta * entropy(new_log_probs))
-            loss_policy_v.backward()
+            loss_policy = -(clipped_surrogate + beta * calculate_entropy(new_log_probs))
+            loss_policy.backward()
             self.actor_optimizer.step()
 
             sum_loss_value += value_loss.item()
-            sum_loss_policy += loss_policy_v.item()
+            sum_loss_policy += loss_policy.item()
             count_steps += 1
+
+        return sum_loss_value / count_steps, sum_loss_policy / count_steps

@@ -10,7 +10,7 @@ def swish(x):
 class Actor(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, state_size, action_size, seed, fc1_units=64, fc2_units=64):
+    def __init__(self, state_size, action_size, seed, log_std=-1, fc1_units=64, fc2_units=64):
         """Initialize parameters and build model.
         Params
         ======
@@ -23,13 +23,14 @@ class Actor(nn.Module):
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units, fc2_units)
         self.fc3 = nn.Linear(fc2_units, action_size)
+        self.log_std_value = log_std
 
     def forward(self, state):
         """Build a network that maps state -> actions mu."""
         h = swish(self.fc1(state))
         h = swish(self.fc2(h))
         mu = F.tanh(self.fc3(h))
-        log_std = torch.zeros_like(mu)
+        log_std = torch.zeros_like(mu) - self.log_std_value
         std = torch.exp(log_std)
 
         return mu, std, log_std
