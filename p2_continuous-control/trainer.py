@@ -1,5 +1,8 @@
+from collections import deque
+
 import torch
 import torch.nn as nn
+import numpy as np
 
 from losses import calculate_clipped_surrogate
 from trajectories import collect_trajectories
@@ -25,19 +28,43 @@ class Trainer(object):
         self.gamma = options['GAMMA']
         self.lamb = options['GAE_LAMBDA']
 
+        self.actor_ckpt = options['ACTOR_CKPT']
+        self.critic_ckpt = options['CRITIC_CKPT']
+
         self.criterion = nn.MSELoss()
 
     def train(self):
-        for e in range(self.max_epoches):
+        mean_rewards = []
+        last_100_mean_rewards = deque(maxlen=100)
+
+        for i_episode in range(1, self.max_epoches + 1):
             trajectories = collect_trajectories(self.env, self.actor, self.max_trajectories_len)
+            total_rewards = trajectories.total_rewards()
+            mean_reward = np.mean(total_rewards)
+
+            mean_rewards.append(mean_reward)
+            last_100_mean_rewards.append(mean_reward)
 
             states, actions, old_log_probs, rewards = trajectories.get_as_tensor()
             old_advantages, old_returns = trajectories.get_gae(self.critic, self.gamma, self.lamb, as_tensor=True)
 
             for pe in range(self.ppo_epoches):
-                self.run_one_ppo_epoch(states, actions, old_log_probs, old_advantages, old_returns)
+                self.run_one_ppo_epoch(states, actions, old_log_probs, old_advantages, old_returns, self.ppo_eps)
 
-    def run_one_ppo_epoch(self, states, actions, old_log_probs, old_advantages, old_returns):
+            if i_episode % 20 == 0:
+                print("Episode: {0:d}, Score last 100: {1:f}".format(i_episode, np.mean(last_100_mean_rewards)))
+                print(total_rewards)
+
+            if np.mean(last_100_mean_rewards) >= 30.0:
+                print('Env solved in {:d} episodes!\tAvg. Score: {:.2f}'.format(i_episode - 100,
+                                                                                np.mean(last_100_mean_rewards)))
+                torch.save(self.actor.state_dict(), self.actor_ckpt)
+                torch.save(self.critic.state_dict(), self.critic_ckpt)
+                break
+
+        return mean_rewards, last_100_mean_rewards
+
+    def run_one_ppo_epoch(self, states, actions, old_log_probs, old_advantages, old_returns, epsilon):
 
         max_episodes_len = len(states)
         sum_loss_value = 0.0
@@ -64,7 +91,7 @@ class Trainer(object):
 
             new_log_probs = log_density(sampled_actions, mu, std, log_std)
             clipped_surrogate = calculate_clipped_surrogate(sampled_old_advantages, sampled_old_log_probs,
-                                                            new_log_probs, self.ppo_eps)
+                                                            new_log_probs, epsilon)
             loss_policy_v = -clipped_surrogate
             loss_policy_v.backward()
             self.actor_optimizer.step()

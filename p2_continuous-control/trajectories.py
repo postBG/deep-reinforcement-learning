@@ -62,6 +62,9 @@ class Trajectories(object):
         returns = to_tensor(returns) if as_tensor else returns
         return advantages, returns
 
+    def total_rewards(self):
+        return np.sum(self.rewards, axis=0)
+
     def __len__(self):
         return len(self.states)
 
