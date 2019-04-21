@@ -56,6 +56,7 @@ class Trajectories(object):
 
     def get_gae(self, critic, gamma, lamb, normalize=True, as_tensor=True):
         values = run_model_with_no_grad(critic, self.states_t, to_numpy=True, eval_mode=True)
+        values = values.reshape(values.shape[:-1])
         advantages, returns = calculate_gae(self.rewards, values, gamma, lamb, normalize=normalize)
 
         advantages = to_tensor(advantages) if as_tensor else advantages

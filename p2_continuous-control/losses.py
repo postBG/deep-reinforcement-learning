@@ -6,4 +6,5 @@ def calculate_clipped_surrogate(advantages, old_log_probs, new_log_probs, epsilo
     surr = ratio * advantages
     clipped = torch.clamp(ratio, 1.0 - epsilon, 1.0 + epsilon) * advantages
     clipped_surrogate = torch.min(surr, clipped)
-    return clipped_surrogate
+
+    return torch.mean(clipped_surrogate)
