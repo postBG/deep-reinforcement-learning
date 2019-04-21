@@ -31,4 +31,5 @@ def calculate_gae(rewards, values, gamma, lamb, normalize=True):
     if normalize:
         advantages = batch_normalize(advantages)
 
-    return advantages
+    estimated_returns = advantages + values
+    return advantages, estimated_returns
