@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from losses import calculate_clipped_surrogate
+from losses import calculate_clipped_surrogate, entropy
 from trajectories import collect_trajectories
 from utils import DEVICE, log_density
 
@@ -27,6 +27,7 @@ class Trainer(object):
         self.ppo_eps = options['PPO_EPS']
         self.gamma = options['GAMMA']
         self.lamb = options['GAE_LAMBDA']
+        self.beta = options['ENTROPY_WEIGHT']
 
         self.actor_ckpt = options['ACTOR_CKPT']
         self.critic_ckpt = options['CRITIC_CKPT']
@@ -49,7 +50,9 @@ class Trainer(object):
             old_advantages, old_returns = trajectories.get_gae(self.critic, self.gamma, self.lamb, as_tensor=True)
 
             for pe in range(self.ppo_epoches):
-                self.run_one_ppo_epoch(states, actions, old_log_probs, old_advantages, old_returns, self.ppo_eps)
+                self.beta *= 0.995
+                self.run_one_ppo_epoch(states, actions, old_log_probs, old_advantages, old_returns,
+                                       self.ppo_eps, self.beta)
 
             if i_episode % 10 == 0:
                 print("Episode: {0:d}, Score last 100: {1:f}".format(i_episode, np.mean(last_100_mean_rewards)))
@@ -63,7 +66,7 @@ class Trainer(object):
 
         return mean_rewards, last_100_mean_rewards
 
-    def run_one_ppo_epoch(self, states, actions, old_log_probs, old_advantages, old_returns, epsilon):
+    def run_one_ppo_epoch(self, states, actions, old_log_probs, old_advantages, old_returns, epsilon, beta):
 
         max_episodes_len = len(states)
         sum_loss_value = 0.0
@@ -91,7 +94,7 @@ class Trainer(object):
             new_log_probs = log_density(sampled_actions, mu, std, log_std)
             clipped_surrogate = calculate_clipped_surrogate(sampled_old_advantages, sampled_old_log_probs,
                                                             new_log_probs, epsilon)
-            loss_policy_v = -clipped_surrogate
+            loss_policy_v = -(clipped_surrogate + beta * entropy(new_log_probs))
             loss_policy_v.backward()
             self.actor_optimizer.step()
 

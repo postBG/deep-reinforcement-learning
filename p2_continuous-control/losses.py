@@ -8,3 +8,9 @@ def calculate_clipped_surrogate(advantages, old_log_probs, new_log_probs, epsilo
     clipped_surrogate = torch.min(surr, clipped)
 
     return torch.mean(clipped_surrogate)
+
+
+def entropy(log_probs):
+    probs = torch.exp(log_probs)
+    entropies = -(probs * log_probs)
+    return torch.mean(entropies)

@@ -10,7 +10,7 @@ def swish(x):
 class Actor(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, state_size, action_size, seed, fc1_units=256, fc2_units=128):
+    def __init__(self, state_size, action_size, seed, fc1_units=64, fc2_units=64):
         """Initialize parameters and build model.
         Params
         ======
@@ -24,14 +24,11 @@ class Actor(nn.Module):
         self.fc2 = nn.Linear(fc1_units, fc2_units)
         self.fc3 = nn.Linear(fc2_units, action_size)
 
-        self.fc3.weight.data.mul_(0.1)
-        self.fc3.bias.data.mul_(0.0)
-
     def forward(self, state):
         """Build a network that maps state -> actions mu."""
         h = swish(self.fc1(state))
         h = swish(self.fc2(h))
-        mu = self.fc3(h)
+        mu = F.tanh(self.fc3(h))
         log_std = torch.zeros_like(mu)
         std = torch.exp(log_std)
 
@@ -41,15 +38,12 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     """Critic Model that produces state values"""
 
-    def __init__(self, state_size, seed, fc1_units=256, fc2_units=128):
+    def __init__(self, state_size, seed, fc1_units=64, fc2_units=64):
         super().__init__()
         self.seed = torch.manual_seed(seed)
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units, fc2_units)
         self.fc3 = nn.Linear(fc2_units, 1)
-
-        self.fc3.weight.data.mul_(0.1)
-        self.fc3.bias.data.mul_(0.0)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
