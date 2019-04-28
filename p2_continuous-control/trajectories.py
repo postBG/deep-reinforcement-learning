@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from utils import to_tensor, run_model_with_no_grad, accumulate, batch_normalize, sample_actions, log_density
+from utils import to_tensor, accumulate, batch_normalize
 
 
 def calculate_future_rewards(rewards, gamma):
@@ -51,9 +51,7 @@ class Trajectories(object):
     def get_as_tensor(self):
         return self.states_t, self.actions_t, self.old_log_probs_t, self.rewards_t
 
-    def get_gae(self, critic, gamma, lamb, normalize=True, as_tensor=True):
-        values = run_model_with_no_grad(critic, self.states_t, to_numpy=True, eval_mode=True)
-        values = values.reshape(values.shape[:-1])
+    def get_gae(self, values, gamma, lamb, normalize=True, as_tensor=True):
         advantages, returns = calculate_gae(self.rewards, values, gamma, lamb, normalize=normalize)
 
         advantages = to_tensor(advantages.copy()) if as_tensor else advantages
@@ -71,7 +69,7 @@ class Trajectories(object):
         return self.states.shape[1]
 
 
-def collect_trajectories(env, actor, max_episodes_len=2049):
+def collect_trajectories(env, model, max_episodes_len=2049):
     # get the default brain
     brain_name = env.brain_names[0]
 
@@ -83,8 +81,8 @@ def collect_trajectories(env, actor, max_episodes_len=2049):
     # reset the environment
     env_info = env.reset()[brain_name]
 
-    is_train = actor.training
-    actor.eval()
+    is_train = model.training
+    model.eval()
     for t in range(max_episodes_len):
         # probs will only be used as the pi_old
         # no gradient propagation is needed
@@ -92,9 +90,7 @@ def collect_trajectories(env, actor, max_episodes_len=2049):
         states = env_info.vector_observations
         states_t = to_tensor(states)
         with torch.no_grad():
-            mu_t, std_t, log_std_t = actor(states_t)
-            actions_t = sample_actions(mu_t, std_t)
-            actions_log_prob_t = log_density(actions_t, mu_t, std_t, log_std_t)
+            actions_t, actions_log_prob_t, entropy, values = model(states_t)
             actions_log_prob = actions_log_prob_t.cpu().numpy()
 
             actions = actions_t.cpu().numpy()
@@ -112,7 +108,7 @@ def collect_trajectories(env, actor, max_episodes_len=2049):
             break
 
     if is_train:
-        actor.train()
+        model.train()
 
     return Trajectories(np.asarray(state_list), np.asarray(action_list), np.asarray(old_log_probs),
                         np.asarray(reward_list))

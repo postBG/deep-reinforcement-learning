@@ -7,10 +7,10 @@ def swish(x):
     return x * F.sigmoid(x)
 
 
-class Actor(nn.Module):
+class ActorCritic(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, state_size, action_size, seed, log_std=-1, fc1_units=64, fc2_units=64):
+    def __init__(self, state_size, action_size, seed, fc1_units=64, fc2_units=64):
         """Initialize parameters and build model.
         Params
         ======
@@ -22,33 +22,25 @@ class Actor(nn.Module):
         self.seed = torch.manual_seed(seed)
         self.fc1 = nn.Linear(state_size, fc1_units)
         self.fc2 = nn.Linear(fc1_units, fc2_units)
-        self.fc3 = nn.Linear(fc2_units, action_size)
-        self.log_std_value = log_std
 
-    def forward(self, state):
+        self.actor_fc = nn.Linear(fc2_units, action_size)
+        self.critic_fc = nn.Linear(fc2_units, 1)
+
+        self.std = nn.Parameter(torch.zeros(action_size))
+
+    def forward(self, state, actions=None):
         """Build a network that maps state -> actions mu."""
         h = swish(self.fc1(state))
         h = swish(self.fc2(h))
-        mu = self.fc3(h)
 
-        log_std = torch.zeros_like(mu) - self.log_std_value
-        std = torch.exp(log_std)
+        mu = F.tanh(self.actor_fc(h))
+        values = self.critic_fc(h).squeeze(-1)
 
-        return mu, std, log_std
+        dist = torch.distributions.Normal(mu, F.softplus(self.std))
 
-
-class Critic(nn.Module):
-    """Critic Model that produces state values"""
-
-    def __init__(self, state_size, seed, fc1_units=64, fc2_units=64):
-        super().__init__()
-        self.seed = torch.manual_seed(seed)
-        self.fc1 = nn.Linear(state_size, fc1_units)
-        self.fc2 = nn.Linear(fc1_units, fc2_units)
-        self.fc3 = nn.Linear(fc2_units, 1)
-
-    def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        v = self.fc3(x)
-        return v
+        if actions is None:
+            actions = dist.sample()
+        log_prob = dist.log_prob(actions)
+        log_prob = torch.sum(log_prob, dim=-1)
+        entropy = torch.sum(dist.entropy(), dim=-1)
+        return actions, log_prob, entropy, values
