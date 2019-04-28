@@ -22,7 +22,7 @@ def batch_normalize(x):
 def log_density(x, mu, std, log_std):
     var = std.pow(2)
     log_dens = -(x - mu).pow(2) / (2 * var) - 0.5 * math.log(2 * math.pi) - log_std
-    return log_dens.sum(1, keepdim=True)
+    return log_dens
 
 
 def to_tensor_long(numpy_array):
@@ -48,3 +48,9 @@ def run_model_with_no_grad(model, inputs, to_numpy=False, eval_mode=True):
     if to_numpy:
         outputs = outputs.cpu().numpy()
     return outputs
+
+
+def print_ratio_for_debugging(i_episode, new_log_probs, sampled_old_log_probs):
+    ratio = torch.exp(new_log_probs.detach() - sampled_old_log_probs.detach())
+    if i_episode % 10:
+        print(ratio.mean())

@@ -29,7 +29,8 @@ class Actor(nn.Module):
         """Build a network that maps state -> actions mu."""
         h = swish(self.fc1(state))
         h = swish(self.fc2(h))
-        mu = F.tanh(self.fc3(h))
+        mu = self.fc3(h)
+
         log_std = torch.zeros_like(mu) - self.log_std_value
         std = torch.exp(log_std)
 

@@ -1,12 +1,13 @@
+import random
 from collections import deque
 
 import torch
 import torch.nn as nn
 import numpy as np
 
-from losses import calculate_clipped_surrogate, calculate_entropy
+from losses import calculate_clipped_surrogate
 from trajectories import collect_trajectories
-from utils import DEVICE, log_density
+from utils import DEVICE, log_density, print_ratio_for_debugging
 
 
 class Trainer(object):
@@ -31,6 +32,7 @@ class Trainer(object):
 
         self.actor_ckpt = options['ACTOR_CKPT']
         self.critic_ckpt = options['CRITIC_CKPT']
+        self.debug = options.get('DEBUG', False)
 
         self.criterion = nn.MSELoss()
 
@@ -46,7 +48,11 @@ class Trainer(object):
             mean_rewards.append(mean_reward)
             last_100_mean_rewards.append(mean_reward)
 
-            states, actions, old_log_probs, rewards = trajectories.get_as_tensor()
+            states, actions, _, rewards = trajectories.get_as_tensor()
+
+            old_mu, old_std, old_log_std = self.actor(states)
+            old_mu, old_std, old_log_std = old_mu.detach(), old_std.detach(), old_log_std.detach()
+            old_log_probs = log_density(actions, old_mu, old_std, old_log_std)
             old_advantages, old_returns = trajectories.get_gae(self.critic, self.gamma, self.lamb, as_tensor=True)
 
             sum_value_loss = 0
@@ -54,7 +60,7 @@ class Trainer(object):
             for pe in range(self.ppo_epoches):
                 self.beta *= 0.995
                 value_loss, policy_loss = self.run_one_ppo_epoch(states, actions, old_log_probs, old_advantages,
-                                                                 old_returns, self.ppo_eps, self.beta)
+                                                                 old_returns, self.ppo_eps, self.beta, i_episode)
                 sum_value_loss += value_loss
                 sum_policy_loss += policy_loss
 
@@ -72,19 +78,21 @@ class Trainer(object):
 
         return mean_rewards, last_100_mean_rewards
 
-    def run_one_ppo_epoch(self, states, actions, old_log_probs, old_advantages, old_returns, epsilon, beta):
+    def run_one_ppo_epoch(self, states, actions, old_log_probs, old_advantages, old_returns, epsilon, beta, i_episode):
 
         max_episodes_len = len(states)
         sum_loss_value = 0.0
         sum_loss_policy = 0.0
         count_steps = 0
+        start_index = random.randint(0, self.ppo_batch_size - 1)
 
-        for batch_ofs in range(0, max_episodes_len, self.ppo_batch_size):
-            sampled_states = states[batch_ofs:batch_ofs + self.ppo_batch_size]
-            sampled_actions = actions[batch_ofs:batch_ofs + self.ppo_batch_size]
-            sampled_old_advantages = old_advantages[batch_ofs:batch_ofs + self.ppo_batch_size].unsqueeze(-1)
-            sampled_returns = old_returns[batch_ofs:batch_ofs + self.ppo_batch_size]
-            sampled_old_log_probs = old_log_probs[batch_ofs:batch_ofs + self.ppo_batch_size]
+        for batch_ofs in range(start_index, max_episodes_len, self.ppo_batch_size):
+            end_index = min(batch_ofs + self.ppo_batch_size, max_episodes_len)
+            sampled_states = states[batch_ofs:end_index]
+            sampled_actions = actions[batch_ofs:end_index]
+            sampled_old_advantages = old_advantages[batch_ofs:end_index].unsqueeze(-1)
+            sampled_returns = old_returns[batch_ofs:end_index]
+            sampled_old_log_probs = old_log_probs[batch_ofs:end_index]
 
             # critic training
             self.critic_optimizer.zero_grad()
@@ -98,9 +106,12 @@ class Trainer(object):
             mu, std, log_std = self.actor(sampled_states)
 
             new_log_probs = log_density(sampled_actions, mu, std, log_std)
+            if self.debug:
+                print_ratio_for_debugging(i_episode, new_log_probs, sampled_old_log_probs)
             clipped_surrogate = calculate_clipped_surrogate(sampled_old_advantages, sampled_old_log_probs,
                                                             new_log_probs, epsilon)
-            loss_policy = -(clipped_surrogate + beta * calculate_entropy(new_log_probs))
+            # loss_policy = -(clipped_surrogate + beta * calculate_entropy(new_log_probs))
+            loss_policy = -clipped_surrogate
             loss_policy.backward()
             self.actor_optimizer.step()
 
