@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import torch
 
@@ -69,9 +71,10 @@ class Trajectories(object):
         return self.states.shape[1]
 
 
-def collect_trajectories(env, model, max_episodes_len=2049):
+def collect_trajectories(env, model, max_episodes_len=None):
     # get the default brain
     brain_name = env.brain_names[0]
+    max_episodes_len = max_episodes_len if max_episodes_len else math.inf
 
     state_list = []
     action_list = []

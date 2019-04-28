@@ -9,6 +9,21 @@ from trajectories import collect_trajectories
 from utils import DEVICE, print_ratio_for_debugging, to_tensor_long
 
 
+def evaluate(env, model):
+    last_100_episode_rewards = deque(maxlen=100)
+
+    for i_episode in range(1, 201):
+        trajectories = collect_trajectories(env, model)
+        total_rewards = trajectories.total_rewards()
+        mean_reward = np.mean(total_rewards)
+        last_100_episode_rewards.append(mean_reward)
+
+        if np.mean(last_100_episode_rewards) >= 30.0:
+            print('Env solved in {:d} episodes!\tAvg. Score: {:.2f}'.format(i_episode - 100,
+                                                                            np.mean(last_100_episode_rewards)))
+            break
+
+
 class Trainer(object):
     def __init__(self, env, model, actor_optimizer, options):
         self.env = env
@@ -27,23 +42,25 @@ class Trainer(object):
         self.lamb = options['GAE_LAMBDA']
         self.beta = options['ENTROPY_WEIGHT']
 
-        self.actor_ckpt = options['ACTOR_CKPT']
-        self.critic_ckpt = options['CRITIC_CKPT']
+        self.ckpt = options['CKPT']
         self.debug = options.get('DEBUG', False)
 
         self.criterion = nn.MSELoss()
+        self.mean_rewards = []
+        self.last_100_mean_rewards = deque(maxlen=100)
 
     def train(self):
-        mean_rewards = []
-        last_100_mean_rewards = deque(maxlen=100)
+        self.mean_rewards = []
+        self.last_100_mean_rewards = deque(maxlen=100)
+        max_score = 0
 
         for i_episode in range(1, self.max_epoches + 1):
             trajectories = collect_trajectories(self.env, self.model, self.max_trajectories_len)
             total_rewards = trajectories.total_rewards()
             mean_reward = np.mean(total_rewards)
 
-            mean_rewards.append(mean_reward)
-            last_100_mean_rewards.append(mean_reward)
+            self.mean_rewards.append(mean_reward)
+            self.last_100_mean_rewards.append(mean_reward)
 
             states, actions, _, rewards = trajectories.get_as_tensor()
 
@@ -65,17 +82,18 @@ class Trainer(object):
             if i_episode % 10 == 0:
                 print(('\rEpisode {}\tRecent Score: {:.2f}\tAverage Score: {:.2f}' +
                        '\tMean Value loss: {:.5f}\tMean policy loss {:.5f}').format(
-                    i_episode, mean_reward, np.mean(last_100_mean_rewards),
+                    i_episode, mean_reward, np.mean(self.last_100_mean_rewards),
                     sum_value_loss / self.ppo_epoches, sum_policy_loss / self.ppo_epoches))
-
-            if np.mean(last_100_mean_rewards) >= 30.0:
+                if max_score < mean_reward:
+                    max_score = mean_reward
+                    torch.save(self.model.state_dict(), self.ckpt)
+            if np.mean(self.last_100_mean_rewards) >= 30.0:
                 print('Env solved in {:d} episodes!\tAvg. Score: {:.2f}'.format(i_episode - 100,
-                                                                                np.mean(last_100_mean_rewards)))
-                torch.save(self.model.state_dict(), self.actor_ckpt)
-                torch.save(self.critic.state_dict(), self.critic_ckpt)
+                                                                                np.mean(self.last_100_mean_rewards)))
+                torch.save(self.model.state_dict(), self.ckpt)
                 break
 
-        return mean_rewards, last_100_mean_rewards
+        return self.mean_rewards, self.last_100_mean_rewards
 
     def run_one_ppo_epoch(self, states, actions, old_log_probs, old_advantages, old_returns, epsilon, i_episode, arr,
                           beta):
