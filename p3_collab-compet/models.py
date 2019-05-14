@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from utils import DEVICE
+
 
 def swish(x):
     return x * F.sigmoid(x)
@@ -58,7 +60,7 @@ class Critic(nn.Module):
 
     def forward(self, states, actions):
         """Build a network that maps states, actions -> q values"""
-        x = torch.cat([states, actions], dim=1)
+        x = torch.cat([states, actions], dim=1).to(DEVICE)
         h = swish(self.fc1(x))
         h = swish(self.fc2(h))
         q_values = self.critic_fc(h).squeeze(-1)
