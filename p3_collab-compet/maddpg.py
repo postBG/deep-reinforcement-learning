@@ -8,7 +8,6 @@ class MADDPG(object):
     def __init__(self, state_size, action_size, num_agents, discount_factor=0.95, tau=0.02):
         super().__init__()
 
-        # critic input = obs_full + actions = 14+2+2+2=20
         self.ddpg_agents = [DDPGAgent(state_size, action_size, num_agents) for _ in range(num_agents)]
 
         self.discount_factor = discount_factor
@@ -57,8 +56,6 @@ class MADDPG(object):
 
     def update_critic(self, actions, agent, agent_number, done, full_states, next_full_states, next_states, rewards):
         agent.critic_optimizer.zero_grad()
-        # critic loss = batch mean of (y- Q(s,a) from critic network)^2
-        # y = reward of this timestep + discount * Q(st+1,at+1) from target network
         with torch.no_grad():
             target_actions = self.target_act(next_states)
             full_target_actions = to_full(target_actions)
