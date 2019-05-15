@@ -8,17 +8,17 @@ from utils import seeding
 def main():
     options = {
         'MAX_EPOCHES': 10000,
-        'GAMMA': 0.95,
+        'GAMMA': 0.99,
         'EPISODE_SIZE': 10000,
-        'TAU': 0.02,
+        'TAU': 0.001,
         'BATCH_SIZE': 128,
         'EPISODE_PER_UPDATE': 10,
-        'PRINT_PERIOD': 5,
+        'PRINT_PERIOD': 100,
         'CKPT': 'model.pth',
-        'SEED': 1,
+        'SEED': 15,
         'HIDDEN_UNITS': 64,
-        'NOISE': 1,
-        'NOISE_REDUCTION': 0.999
+        'NOISE': 2,
+        'NOISE_REDUCTION': 0.995
     }
 
     env = UnityEnvironment(file_name="Tennis.app")

@@ -5,16 +5,17 @@ from utils import soft_update, to_full
 
 
 class MADDPG(object):
-    def __init__(self, state_size, action_size, num_agents, discount_factor=0.95, tau=0.02):
+    def __init__(self, state_size, action_size, num_agents, discount_factor=0.95, tau=0.02, hidden_size=128):
         super().__init__()
 
-        self.ddpg_agents = [DDPGAgent(state_size, action_size, num_agents) for _ in range(num_agents)]
+        self.ddpg_agents = [DDPGAgent(state_size, action_size, num_agents, fc1_units=hidden_size, fc2_units=hidden_size)
+                            for _ in range(num_agents)]
         self.num_agents = num_agents
 
         self.discount_factor = discount_factor
         self.tau = tau
         self.iter = 0
-        self.criterion = torch.nn.SmoothL1Loss()
+        self.criterion = torch.nn.MSELoss()
 
     def get_actors(self):
         """get actors of all the agents in the MADDPG object"""
@@ -35,9 +36,8 @@ class MADDPG(object):
 
     def target_act(self, states_of_all_agents, noise=0.0):
         """get target network actions from all the agents in the MADDPG object """
-        target_actions = [agent.target_act(states.unsqueeze(0), noise) for agent, states in
+        target_actions = [agent.target_act(states, noise) for agent, states in
                           zip(self.ddpg_agents, states_of_all_agents)]
-        target_actions = [action.squeeze() for action in target_actions]
         return target_actions
 
     def update(self, samples, agent_number):
@@ -64,6 +64,7 @@ class MADDPG(object):
         q = agent.critic(full_states, full_actions)
         critic_loss = self.criterion(q, q_target.detach())
         critic_loss.backward()
+        torch.nn.utils.clip_grad_norm_(agent.critic.parameters(), 1)
         agent.critic_optimizer.step()
 
         return critic_loss.item()
@@ -75,14 +76,15 @@ class MADDPG(object):
         # make input to agent
         # detach the other agents to save computation
         # saves some time for computing derivative
-        q_inputs = [self.ddpg_agents[i].actor(state.unsqueeze(0)) if i == agent_number
-                    else self.ddpg_agents[i].actor(state.unsqueeze(0)).detach()
+        q_inputs = [self.ddpg_agents[i].actor(state) if i == agent_number
+                    else self.ddpg_agents[i].actor(state).detach()
                     for i, state in enumerate(states)]
-        q_inputs = [q_input.squeeze(0) for q_input in q_inputs]
         full_q_input = to_full(q_inputs)
         actor_loss = -agent.critic(full_states, full_q_input).mean()
         actor_loss.backward()
+        torch.nn.utils.clip_grad_norm_(agent.actor.parameters(), 1)
         agent.actor_optimizer.step()
+
         return actor_loss.item()
 
     def update_targets(self):
