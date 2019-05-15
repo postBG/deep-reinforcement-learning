@@ -6,6 +6,11 @@ import torch
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
+def seeding(seed=1):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
 def accumulate(x, discount_rate=1):
     reversed_x = x[::-1]
     accumulated_x = np.asarray(list(accum(reversed_x, lambda prev, curr: prev * discount_rate + curr)))[::-1]
@@ -68,6 +73,10 @@ def transpose_list(mylist):
 
 
 def to_full(tensors):
+    if type(tensors) is torch.Tensor:
+        batch_size = tensors.size(0)
+        return tensors.view(batch_size, -1)
+
     return torch.cat(tensors, dim=1)
 
 

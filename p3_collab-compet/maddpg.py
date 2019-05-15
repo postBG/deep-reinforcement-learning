@@ -1,7 +1,7 @@
 import torch
 
 from ddpg import DDPGAgent
-from utils import soft_update, to_tensor, to_full
+from utils import soft_update, to_full
 
 
 class MADDPG(object):
@@ -14,7 +14,7 @@ class MADDPG(object):
         self.discount_factor = discount_factor
         self.tau = tau
         self.iter = 0
-        self.critic = torch.nn.SmoothL1Loss()
+        self.criterion = torch.nn.SmoothL1Loss()
 
     def get_actors(self):
         """get actors of all the agents in the MADDPG object"""
@@ -35,26 +35,21 @@ class MADDPG(object):
 
     def target_act(self, states_of_all_agents, noise=0.0):
         """get target network actions from all the agents in the MADDPG object """
-        target_actions = [ddpg_agent.target_act(states.unsqueeze(0), noise) for ddpg_agent, states in
+        target_actions = [agent.target_act(states.unsqueeze(0), noise) for agent, states in
                           zip(self.ddpg_agents, states_of_all_agents)]
         target_actions = [action.squeeze() for action in target_actions]
         return target_actions
 
-    def update(self, samples, agent_number, logger):
+    def update(self, samples, agent_number):
         """update the critics and actors of all the agents """
 
-        states, full_states, actions, rewards, next_states, next_full_states, dones = map(to_tensor, samples)
+        states, full_states, actions, rewards, next_states, next_full_states, dones = samples
 
         critic_loss = self.update_critic(agent_number, actions, dones, full_states, next_full_states, next_states,
                                          rewards)
         actor_loss = self.update_actor(agent_number, full_states, states)
 
-        al = actor_loss.cpu().detach().item()
-        cl = critic_loss.cpu().detach().item()
-        logger.add_scalars('agent%i/losses' % agent_number,
-                           {'critic loss': cl,
-                            'actor_loss': al},
-                           self.iter)
+        return critic_loss, actor_loss
 
     def update_critic(self, agent_number, actions, done, full_states, next_full_states, next_states, rewards):
         agent = self.ddpg_agents[agent_number]
@@ -64,15 +59,14 @@ class MADDPG(object):
             full_target_actions = to_full(target_actions)
 
             q_next = agent.target_critic(next_full_states, full_target_actions)
-        q_target = rewards[agent_number].view(-1, 1) + self.discount_factor * q_next * (
-                1 - done[agent_number].view(-1, 1))
+        q_target = rewards[agent_number] + self.discount_factor * q_next * (1 - done[agent_number])
         full_actions = to_full(actions)
         q = agent.critic(full_states, full_actions)
-        critic_loss = self.critic(q, q_target.detach())
+        critic_loss = self.criterion(q, q_target.detach())
         critic_loss.backward()
         agent.critic_optimizer.step()
 
-        return critic_loss
+        return critic_loss.item()
 
     def update_actor(self, agent_number, full_states, states):
         agent = self.ddpg_agents[agent_number]
@@ -89,7 +83,7 @@ class MADDPG(object):
         actor_loss = -agent.critic(full_states, full_q_input).mean()
         actor_loss.backward()
         agent.actor_optimizer.step()
-        return actor_loss
+        return actor_loss.item()
 
     def update_targets(self):
         """soft update targets"""

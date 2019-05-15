@@ -40,16 +40,16 @@ class Trainer(object):
         self.avg_rewards = []
         self.last_100_episode_rewards = deque(maxlen=100)
 
-        buffer = ReplayBuffer(int(500000), self.batch_size, 0)
+        buffer = ReplayBuffer(int(500000), self.batch_size)
 
-        for agent in self.maddpg.maddpg_agent:
+        for agent in self.maddpg.ddpg_agents:
             agent.noise.reset()
 
         for episode in range(self.max_epoches):
             brain_name = self.env.brain_names[0]
-            env_info = self.env.reset()[brain_name]
+            env_info = self.env.reset(train_mode=True)[brain_name]
 
-            episode_rewards = (0, 0)
+            episode_rewards = [0, 0]
 
             for episode_t in range(self.max_episode_len):
                 states = env_info.vector_observations
@@ -102,10 +102,10 @@ class Trainer(object):
                 save_dict_list = []
 
                 for i in range(self.num_agents):
-                    save_dict = {'actor_params': self.maddpg.maddpg_agent[i].actor.state_dict(),
-                                 'actor_optim_params': self.maddpg.maddpg_agent[i].actor_optimizer.state_dict(),
-                                 'critic_params': self.maddpg.maddpg_agent[i].critic.state_dict(),
-                                 'critic_optim_params': self.maddpg.maddpg_agent[i].critic_optimizer.state_dict()}
+                    save_dict = {'actor_params': self.maddpg.ddpg_agents[i].actor.state_dict(),
+                                 'actor_optim_params': self.maddpg.ddpg_agents[i].actor_optimizer.state_dict(),
+                                 'critic_params': self.maddpg.ddpg_agents[i].critic.state_dict(),
+                                 'critic_optim_params': self.maddpg.ddpg_agents[i].critic_optimizer.state_dict()}
                     save_dict_list.append(save_dict)
 
                     torch.save(save_dict_list,
