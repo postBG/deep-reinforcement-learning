@@ -63,6 +63,10 @@ def hard_update(target, source):
         target_param.data.copy_(param.data)
 
 
+def transpose_list(mylist):
+    return list(map(list, zip(*mylist)))
+
+
 def print_ratio_for_debugging(i_episode, new_log_probs, sampled_old_log_probs):
     ratio = torch.exp(new_log_probs.detach() - sampled_old_log_probs.detach())
     if i_episode % 10:
