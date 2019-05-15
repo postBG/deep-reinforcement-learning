@@ -5,10 +5,11 @@ from utils import transpose_list
 
 
 class ReplayBuffer(object):
-    def __init__(self, size):
+    def __init__(self, size, batch_size):
         super().__init__()
         self.size = size
         self.deque = deque(maxlen=self.size)
+        self.batch_size = batch_size
 
     def push(self, transition):
         """push into the buffer"""
@@ -18,10 +19,9 @@ class ReplayBuffer(object):
         for replay_tuple in replay_tuples:
             self.deque.append(replay_tuple)
 
-    def sample(self, batchsize):
+    def sample(self):
         """sample from the buffer"""
-        samples = random.sample(self.deque, batchsize)
-
+        samples = random.sample(self.deque, self.batch_size)
         return transpose_list(samples)
 
     def __len__(self):

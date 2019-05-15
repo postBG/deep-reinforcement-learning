@@ -9,6 +9,7 @@ class MADDPG(object):
         super().__init__()
 
         self.ddpg_agents = [DDPGAgent(state_size, action_size, num_agents) for _ in range(num_agents)]
+        self.num_agents = num_agents
 
         self.discount_factor = discount_factor
         self.tau = tau
@@ -27,25 +28,26 @@ class MADDPG(object):
 
     def act(self, states_of_all_agents, noise=0.0):
         """get actions from all agents in the MADDPG object"""
-        actions = [agent.act(states, noise) for agent, states in zip(self.ddpg_agents, states_of_all_agents)]
+        actions = [agent.act(states.unsqueeze(0), noise) for agent, states in
+                   zip(self.ddpg_agents, states_of_all_agents)]
+        actions = [action.squeeze() for action in actions]
         return actions
 
     def target_act(self, states_of_all_agents, noise=0.0):
         """get target network actions from all the agents in the MADDPG object """
-        target_actions = [ddpg_agent.target_act(states, noise) for ddpg_agent, states in
+        target_actions = [ddpg_agent.target_act(states.unsqueeze(0), noise) for ddpg_agent, states in
                           zip(self.ddpg_agents, states_of_all_agents)]
+        target_actions = [action.squeeze() for action in target_actions]
         return target_actions
 
     def update(self, samples, agent_number, logger):
         """update the critics and actors of all the agents """
 
-        states, full_states, actions, rewards, next_states, next_full_states, done = map(to_tensor, samples)
+        states, full_states, actions, rewards, next_states, next_full_states, dones = map(to_tensor, samples)
 
-        agent = self.ddpg_agents[agent_number]
-
-        critic_loss = self.update_critic(actions, agent, agent_number, done, full_states, next_full_states, next_states,
+        critic_loss = self.update_critic(agent_number, actions, dones, full_states, next_full_states, next_states,
                                          rewards)
-        actor_loss = self.update_actor(agent, agent_number, full_states, states)
+        actor_loss = self.update_actor(agent_number, full_states, states)
 
         al = actor_loss.cpu().detach().item()
         cl = critic_loss.cpu().detach().item()
@@ -54,7 +56,8 @@ class MADDPG(object):
                             'actor_loss': al},
                            self.iter)
 
-    def update_critic(self, actions, agent, agent_number, done, full_states, next_full_states, next_states, rewards):
+    def update_critic(self, agent_number, actions, done, full_states, next_full_states, next_states, rewards):
+        agent = self.ddpg_agents[agent_number]
         agent.critic_optimizer.zero_grad()
         with torch.no_grad():
             target_actions = self.target_act(next_states)
@@ -71,15 +74,18 @@ class MADDPG(object):
 
         return critic_loss
 
-    def update_actor(self, agent, agent_number, full_states, states):
+    def update_actor(self, agent_number, full_states, states):
+        agent = self.ddpg_agents[agent_number]
         # update actor network using policy gradient
         agent.actor_optimizer.zero_grad()
         # make input to agent
         # detach the other agents to save computation
         # saves some time for computing derivative
-        q_input = [self.ddpg_agents[i].actor(state) if i == agent_number else self.ddpg_agents[i].actor(state).detach()
-                   for i, state in enumerate(states)]
-        full_q_input = to_full(q_input)
+        q_inputs = [self.ddpg_agents[i].actor(state.unsqueeze(0)) if i == agent_number
+                    else self.ddpg_agents[i].actor(state.unsqueeze(0)).detach()
+                    for i, state in enumerate(states)]
+        q_inputs = [q_input.squeeze(0) for q_input in q_inputs]
+        full_q_input = to_full(q_inputs)
         actor_loss = -agent.critic(full_states, full_q_input).mean()
         actor_loss.backward()
         agent.actor_optimizer.step()
