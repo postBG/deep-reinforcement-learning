@@ -6,14 +6,15 @@ from OUNoise import OUNoise
 from utils import hard_update, DEVICE
 
 
-class DDPGAgent:
-    def __init__(self, state_size, action_size, num_agents, fc1_units=64, fc2_units=64, lr_actor=1.0e-2, lr_critic=1.0e-2):
-        super(DDPGAgent, self).__init__()
+class DDPGAgent(object):
+    def __init__(self, state_size, action_size, num_agents, fc1_units=64, fc2_units=64, lr_actor=1.0e-2,
+                 lr_critic=1.0e-2):
+        super().__init__()
 
         self.actor = Actor(state_size, action_size, fc1_units, fc2_units).to(DEVICE)
-        self.critic = Critic(state_size * num_agents, action_size, fc1_units, fc2_units).to(DEVICE)
+        self.critic = Critic(state_size * num_agents, action_size * num_agents, fc1_units, fc2_units).to(DEVICE)
         self.target_actor = Actor(state_size, action_size, fc1_units, fc2_units).to(DEVICE)
-        self.target_critic = Critic(state_size * num_agents, action_size, fc1_units, fc2_units).to(DEVICE)
+        self.target_critic = Critic(state_size * num_agents, action_size * num_agents, fc1_units, fc2_units).to(DEVICE)
 
         self.noise = OUNoise(action_size, scale=1.0)
 
