@@ -15,9 +15,9 @@ def main():
         'EPISODE_PER_UPDATE': 10,
         'PRINT_PERIOD': 100,
         'CKPT': 'model.pth',
-        'SEED': 15,
-        'HIDDEN_UNITS': 64,
-        'NOISE': 2,
+        'SEED': 0,
+        'HIDDEN_UNITS': 128,
+        'NOISE': 1.0,
         'NOISE_REDUCTION': 0.995
     }
 
@@ -46,7 +46,7 @@ def main():
     print(options)
     seeding(options['SEED'])
 
-    maddpg = MADDPG(state_size, action_size, num_agents, options['GAMMA'], options['TAU'])
+    maddpg = MADDPG(state_size, action_size, num_agents, options['GAMMA'], options['TAU'], options['HIDDEN_UNITS'])
     trainer = Trainer(env, maddpg, num_agents, options)
     trainer.train()
 
