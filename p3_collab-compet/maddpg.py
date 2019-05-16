@@ -11,7 +11,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class MADDPG:
-    def __init__(self, state_size, action_size, num_agents, seed, discount_factor=0.95, tau=0.02):
+    def __init__(self, state_size, action_size, num_agents, discount_factor=0.95, tau=0.02):
         super(MADDPG, self).__init__()
 
         # initialize 2 DDPGAgents.

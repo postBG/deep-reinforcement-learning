@@ -9,7 +9,6 @@ import os
 from unityagents import UnityEnvironment
 from utils import raw_score_plotter, plotter
 
-
 from collections import deque
 
 
@@ -17,12 +16,27 @@ def seeding(seed=1):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
+
 def main():
+    options = {
+        'MAX_EPOCHES': 10000,
+        'GAMMA': 0.95,
+        'EPISODE_SIZE': 10000,
+        'TAU': 0.02,
+        'BATCH_SIZE': 128,
+        'EPISODE_PER_UPDATE': 2,
+        'PRINT_PERIOD': 5,
+        'CKPT': 'model.pth',
+        'SEED': 1,
+        'HIDDEN_UNITS': 128,
+        'NOISE': 1.0,
+        'NOISE_REDUCTION': 0.9999
+    }
+
     seeding()
     # number of parallel agents
 
     env = UnityEnvironment(file_name="Tennis.app")
-    env_name = 'Tennis'
 
     # get the default brain
     brain_name = env.brain_names[0]
@@ -40,31 +54,26 @@ def main():
 
     # number of training episodes.
     # change this to higher number to experiment. say 30000.
-    number_of_episodes = 10000
-    episode_length = 10000
-    batchsize = 128
+    number_of_episodes = options['MAX_EPOCHES']
+    episode_length = options['EPISODE_SIZE']
+    batch_size = options['BATCH_SIZE']
 
     # amplitude of OU noise
     # this slowly decreases to 0
-    noise = 1
-    noise_reduction = 0.9999
-
-    log_path = os.getcwd() + "/log"
-    model_dir = os.getcwd() + "/model_dir"
-
-    os.makedirs(model_dir, exist_ok=True)
+    noise = options['NOISE']
+    noise_reduction = options['NOISE_REDUCTION']
 
     # initialize memory buffer
-    buffer = ReplayBuffer(int(500000), batchsize, 0)
+    buffer = ReplayBuffer(int(500000), batch_size, 0)
 
     # initialize policy and critic
-    maddpg = MADDPG(state_size, action_size, num_agents, seed=12345, discount_factor=0.95, tau=0.02)
+    maddpg = MADDPG(state_size, action_size, num_agents, discount_factor=options['GAMMA'], tau=options['TAU'])
 
-    #how often to update the MADDPG model
-    episode_per_update = 2
+    # how often to update the MADDPG model
+    episode_per_update = options['EPISODE_PER_UPDATE']
     # training loop
 
-    PRINT_EVERY = 5
+    PRINT_EVERY = options['PRINT_PERIOD']
     scores_deque = deque(maxlen=100)
 
     # holds raw scores
@@ -81,7 +90,6 @@ def main():
         state = env_info.vector_observations  # get the current state (for each agent)
         episode_reward_agent0 = 0
         episode_reward_agent1 = 0
-
 
         for agent in maddpg.maddpg_agent:
             agent.noise.reset()
@@ -119,7 +127,7 @@ def main():
             # update once after every episode_per_update
             critic_losses = []
             actor_losses = []
-            if len(buffer) > batchsize and episode % episode_per_update == 0:
+            if len(buffer) > batch_size and episode % episode_per_update == 0:
                 for i in range(num_agents):
                     samples = buffer.sample()
                     cl, al = maddpg.update(samples, i)
@@ -133,7 +141,7 @@ def main():
             #                                                                         actor_losses[i]))
 
             if np.any(done):
-                #if any of the agents are done break
+                # if any of the agents are done break
                 break
 
         episode_reward = max(episode_reward_agent0, episode_reward_agent1)
@@ -142,14 +150,14 @@ def main():
         avg_last_100.append(np.mean(scores_deque))
         # scores.append(episode_reward)
         print('\rEpisode {}\tAverage Score: {:.4f}\tScore: {:.4f}'.format(episode, avg_last_100[-1],
-                                                                                        episode_reward),
+                                                                          episode_reward),
               end="")
 
         if episode % PRINT_EVERY == 0:
             print('\rEpisode {}\tAverage Score: {:.4f}'.format(episode, avg_last_100[-1]))
 
         # saving successful model
-        #training ends when the threshold value is reached.
+        # training ends when the threshold value is reached.
         if avg_last_100[-1] >= threshold:
             save_dict_list = []
 
@@ -161,11 +169,12 @@ def main():
                 save_dict_list.append(save_dict)
 
                 torch.save(save_dict_list,
-                           os.path.join(model_dir, 'episode-{}.pt'.format(episode)))
+                           os.path.join(options['CKPT'], 'episode-{}.pt'.format(episode)))
             # plots graphs
             raw_score_plotter(scores)
-            plotter(env_name, len(scores), avg_last_100, threshold)
+            plotter('Tennis', len(scores), avg_last_100, threshold)
             break
+
 
 if __name__ == '__main__':
     main()
