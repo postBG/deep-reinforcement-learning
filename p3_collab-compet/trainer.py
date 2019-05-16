@@ -43,44 +43,35 @@ class Trainer(object):
 
         # use keep_awake to keep workspace from disconnecting
         for episode in range(self.number_of_episodes):
+            env_info = self.env.reset(train_mode=True)[self.brain_name]
 
-            env_info = self.env.reset(train_mode=True)[self.brain_name]  # reset the environment
-            state = env_info.vector_observations  # get the current state (for each agent)
-            episode_reward_agent0 = 0
-            episode_reward_agent1 = 0
+            agent_episode_rewards = [0, 0]
 
             for agent in self.maddpg.maddpg_agent:
                 agent.noise.reset()
 
             for episode_t in range(self.max_episode_len):
+                states = env_info.vector_observations
+                states_t = to_tensor(states)
 
-                actions = self.maddpg.act(torch.tensor(state, dtype=torch.float), noise=self.noise)
-                self.noise *= self.noise_reduction
+                with torch.no_grad():
+                    action_ts = self.maddpg.act(states_t, noise=self.noise)
+                    self.noise *= self.noise_reduction
 
-                actions_array = torch.stack(actions).detach().numpy()
+                actions = torch.stack(action_ts).numpy()
+                env_info = self.env.step(actions)[self.brain_name]
 
-                env_info = self.env.step(actions_array)[self.brain_name]
-                next_state = env_info.vector_observations
+                next_states = env_info.vector_observations
+                rewards = env_info.rewards
+                dones = env_info.local_done
 
-                reward = env_info.rewards
-                done = env_info.local_done
+                for i in range(self.num_agents):
+                    agent_episode_rewards[i] += rewards[i]
 
-                episode_reward_agent0 += reward[0]
-                episode_reward_agent1 += reward[1]
-                # add data to buffer
+                full_state = np.concatenate(states)
+                full_next_state = np.concatenate(next_states)
 
-                '''
-                I can either hstack or concat two states here or do it in the update function in MADDPG
-                However I think it's easier to do it here, since in the update function I have batch_size to deal with
-                Although the replay buffer would have to hold more data by preprocessing and creating 2 new variables that 
-                hold essentially the same info as state, and next_state, but just concatenated.
-                '''
-                full_state = np.concatenate((state[0], state[1]))
-                full_next_state = np.concatenate((next_state[0], next_state[1]))
-
-                buffer.add(state, full_state, actions_array, reward, next_state, full_next_state, done)
-
-                state = next_state
+                buffer.add(states, full_state, actions, rewards, next_states, full_next_state, dones)
 
                 # update once after every episode_per_update
                 critic_losses = []
@@ -93,16 +84,11 @@ class Trainer(object):
                         actor_losses.append(al)
                     self.maddpg.update_targets()  # soft update the target network towards the actual networks
 
-                # if episode_t % PRINT_EVERY == 0 and len(critic_losses) == num_agents:
-                #     for i in range(num_agents):
-                #         print("Agent{}\tCritic loss: {:.4f}\tActor loss: {:.4f}".format(i, critic_losses[i],
-                #                                                                         actor_losses[i]))
-
-                if np.any(done):
+                if np.any(dones):
                     # if any of the agents are done break
                     break
 
-            episode_reward = max(episode_reward_agent0, episode_reward_agent1)
+            episode_reward = max(agent_episode_rewards)
             self.episode_rewards.append(episode_reward)
             self.last_100_episode_rewards.append(episode_reward)
             self.avg_rewards.append(np.mean(self.last_100_episode_rewards))
