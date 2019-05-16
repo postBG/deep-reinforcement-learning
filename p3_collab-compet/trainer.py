@@ -71,7 +71,7 @@ class Trainer(object):
                 full_state = np.concatenate(states)
                 full_next_state = np.concatenate(next_states)
 
-                buffer.add(states, full_state, actions, rewards, next_states, full_next_state, dones)
+                buffer.add((states, full_state, actions, rewards, next_states, full_next_state, dones))
 
                 # update once after every episode_per_update
                 critic_losses = []
