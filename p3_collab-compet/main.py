@@ -1,3 +1,4 @@
+import random
 from unityagents import UnityEnvironment
 
 from maddpg import MADDPG
@@ -8,13 +9,14 @@ from utils import seeding
 def main():
     options = {
         'MAX_EPOCHES': 10000,
-        'GAMMA': 0.94,
+        'GAMMA': 0.95,
         'EPISODE_SIZE': 10000,
-        'TAU': 0.001,
+        'TAU': 0.02,
         'BATCH_SIZE': 128,
         'EPISODE_PER_UPDATE': 2,
         'PRINT_PERIOD': 5,
         'CKPT': 'model.pth',
+        # 'SEED': random.randint(0, 100000),
         'SEED': 1,
         'HIDDEN_UNITS': 128,
         'NOISE': 1.0,

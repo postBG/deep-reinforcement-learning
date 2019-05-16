@@ -8,7 +8,7 @@ import numpy as np
 import torch
 
 from buffer import ReplayBuffer
-from utils import to_tensor
+from utils import to_tensor, raw_score_plotter, plotter
 
 
 class Trainer(object):
@@ -98,7 +98,7 @@ class Trainer(object):
             self.episode_rewards.append(episode_reward)
             self.last_100_episode_rewards.append(episode_reward)
             self.avg_rewards.append(np.mean(self.last_100_episode_rewards))
-            # scores.append(episode_reward)
+
             print('\rEpisode {}\tAverage Score: {:.4f}\tScore: {:.4f}'.format(episode, self.avg_rewards[-1],
                                                                               episode_reward), end="")
 
@@ -119,4 +119,7 @@ class Trainer(object):
 
                     torch.save(save_dict_list,
                                os.path.join(self.ckpt, 'episode-{}.pt'.format(episode)))
+
+                raw_score_plotter(self.episode_rewards)
+                plotter('Tennis', len(self.episode_rewards), self.avg_rewards, self.threshold)
                 break

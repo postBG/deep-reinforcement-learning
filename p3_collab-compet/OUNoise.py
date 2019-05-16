@@ -1,22 +1,25 @@
-import torch
+import numpy as np
+
+# from https://github.com/songrotek/DDPG/blob/master/ou_noise.py
+from utils import to_tensor
 
 
-class OUNoise(object):
-    def __init__(self, action_size, scale=0.1, mu=0, theta=0.15, sigma=0.2):
-        super().__init__()
-        self.action_dimension = action_size
+class OUNoise:
+
+    def __init__(self, actions_size, scale=0.1, mu=0, theta=0.15, sigma=0.2):
+        self.action_dimension = actions_size
         self.scale = scale
         self.mu = mu
         self.theta = theta
         self.sigma = sigma
-        self.state = torch.ones(self.action_dimension) * self.mu
+        self.state = np.ones(self.action_dimension) * self.mu
         self.reset()
 
     def reset(self):
-        self.state = torch.ones(self.action_dimension) * self.mu
+        self.state = np.ones(self.action_dimension) * self.mu
 
     def noise(self):
         x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * torch.randn(len(x))
+        dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(len(x))
         self.state = x + dx
-        return self.state * self.scale
+        return to_tensor(self.state * self.scale)

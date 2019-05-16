@@ -1,7 +1,12 @@
 import random
-from collections import deque
+from collections import deque, namedtuple
+
+import torch
+import numpy as np
 
 from utils import transpose_list, to_tensor
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def reshape_states(states):

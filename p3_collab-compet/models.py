@@ -4,14 +4,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 def hidden_init(layer):
     fan_in = layer.weight.data.size()[0]
     lim = 1. / np.sqrt(fan_in)
     return (-lim, lim)
 
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-#The model with only 1 batchnorm layer performed better for some reason.
+
+# The model with only 1 batchnorm layer performed better for some reason.
 
 class Actor(nn.Module):
     """Actor (Policy) Model."""
@@ -27,9 +30,9 @@ class Actor(nn.Module):
             fc2_units (int): Number of nodes in second hidden layer
         """
         super(Actor, self).__init__()
-        #self.seed = torch.manual_seed(seed)
+        # self.seed = torch.manual_seed(seed)
 
-        #only the first layer has batch normalization
+        # only the first layer has batch normalization
         self.bn = nn.BatchNorm1d(state_size)
         self.bn1 = nn.BatchNorm1d(fc_units)
         self.bn2 = nn.BatchNorm1d(fc_units1)
@@ -76,7 +79,7 @@ class Critic(nn.Module):
             fc2_units (int): Number of nodes in the second hidden layer
         """
         super(Critic, self).__init__()
-        #self.seed = torch.manual_seed(seed)
+        # self.seed = torch.manual_seed(seed)
         # only the first layer has batch normalization
         self.bn = nn.BatchNorm1d(state_size * num_agent)
         self.bn1 = nn.BatchNorm1d(fc_units)
@@ -93,7 +96,6 @@ class Critic(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
         self.fc3.weight.data.uniform_(*hidden_init(self.fc3))
