@@ -42,14 +42,14 @@ class Trainer(object):
 
         buffer = ReplayBuffer(int(500000), self.batch_size)
 
-        for agent in self.maddpg.ddpg_agents:
-            agent.noise.reset()
-
         for episode in range(self.max_epoches):
             brain_name = self.env.brain_names[0]
             env_info = self.env.reset(train_mode=True)[brain_name]
 
             episode_rewards = [0, 0]
+
+            for agent in self.maddpg.ddpg_agents:
+                agent.noise.reset()
 
             for episode_t in range(self.max_episode_len):
                 states = env_info.vector_observations
@@ -75,11 +75,20 @@ class Trainer(object):
 
                 buffer.push((states, full_states, actions, rewards, next_states, next_full_states, dones))
 
+                critic_losses = []
+                actor_losses = []
                 if len(buffer) > self.batch_size and episode % self.episode_per_update == 0:
                     for i in range(self.num_agents):
                         samples = buffer.sample()
-                        self.maddpg.update(samples, i)
+                        cl, al = self.maddpg.update(samples, i)
+                        critic_losses.append(cl)
+                        actor_losses.append(al)
                     self.maddpg.update_targets()  # soft update the target network towards the actual networks
+
+                # if episode_t % self.print_period == 0 and len(critic_losses) == self.num_agents:
+                #     for i in range(self.num_agents):
+                #         print("Agent{}\tCritic loss: {:.4f}\tActor loss: {:.4f}".format(i, critic_losses[i],
+                #                                                                         actor_losses[i]))
 
                 if np.any(dones):
                     # if any of the agents are done break

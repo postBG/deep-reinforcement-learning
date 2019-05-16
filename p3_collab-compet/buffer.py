@@ -25,6 +25,7 @@ class ReplayBuffer(object):
         self.size = size
         self.deque = deque(maxlen=self.size)
         self.batch_size = batch_size
+        random.seed(0)
 
     def push(self, transition):
         """push into the buffer"""

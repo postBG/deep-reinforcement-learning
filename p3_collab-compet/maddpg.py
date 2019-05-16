@@ -49,6 +49,7 @@ class MADDPG(object):
                                          rewards)
         actor_loss = self.update_actor(agent_number, full_states, states)
 
+        self.update_targets()
         return critic_loss, actor_loss
 
     def update_critic(self, agent_number, actions, done, full_states, next_full_states, next_states, rewards):
@@ -76,11 +77,11 @@ class MADDPG(object):
         # make input to agent
         # detach the other agents to save computation
         # saves some time for computing derivative
-        q_inputs = [self.ddpg_agents[i].actor(state) if i == agent_number
-                    else self.ddpg_agents[i].actor(state).detach()
-                    for i, state in enumerate(states)]
-        full_q_input = to_full(q_inputs)
-        actor_loss = -agent.critic(full_states, full_q_input).mean()
+        actions = [self.ddpg_agents[i].actor(state) if i == agent_number
+                   else self.ddpg_agents[i].actor(state).detach()
+                   for i, state in enumerate(states)]
+        full_actions = to_full(actions)
+        actor_loss = -agent.critic(full_states, full_actions).mean()
         actor_loss.backward()
         torch.nn.utils.clip_grad_norm_(agent.actor.parameters(), 1)
         agent.actor_optimizer.step()

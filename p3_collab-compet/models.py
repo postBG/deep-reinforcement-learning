@@ -1,65 +1,113 @@
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import DEVICE
+def hidden_init(layer):
+    fan_in = layer.weight.data.size()[0]
+    lim = 1. / np.sqrt(fan_in)
+    return (-lim, lim)
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def swish(x):
-    return x * F.sigmoid(x)
-
+#The model with only 1 batchnorm layer performed better for some reason.
 
 class Actor(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, state_size, action_size, fc1_units=64, fc2_units=64):
+    def __init__(self, state_size, action_size, fc_units=256, fc_units1=128, fc_units2=128, fc_units3=64):
         """Initialize parameters and build model.
         Params
         ======
             state_size (int): Dimension of each state
             action_size (int): Dimension of each action
             seed (int): Random seed
+            fc1_units (int): Number of nodes in first hidden layer
+            fc2_units (int): Number of nodes in second hidden layer
         """
-        super().__init__()
-        self.fc1 = nn.Linear(state_size, fc1_units)
-        self.fc2 = nn.Linear(fc1_units, fc2_units)
-        self.actor_fc = nn.Linear(fc2_units, action_size)
+        super(Actor, self).__init__()
+        #self.seed = torch.manual_seed(seed)
 
-        self.std = nn.Parameter(torch.zeros(action_size))
+        #only the first layer has batch normalization
+        self.bn = nn.BatchNorm1d(state_size)
+        self.bn1 = nn.BatchNorm1d(fc_units)
+        self.bn2 = nn.BatchNorm1d(fc_units1)
+        self.bn3 = nn.BatchNorm1d(fc_units2)
+        self.bn4 = nn.BatchNorm1d(fc_units3)
 
-    def forward(self, states, actions=None):
-        h = swish(self.fc1(states))
-        h = swish(self.fc2(h))
-        mu = F.tanh(self.actor_fc(h))
+        self.fc1 = nn.Linear(state_size, fc_units)
+        self.fc2 = nn.Linear(fc_units, fc_units1)
+        self.fc3 = nn.Linear(fc_units1, fc_units2)
+        self.fc4 = nn.Linear(fc_units2, fc_units3)
+        self.fc5 = nn.Linear(fc_units3, action_size)
 
-        dist = torch.distributions.Normal(mu, F.softplus(self.std))
+        self.reset_parameters()
 
-        if actions is None:
-            actions = dist.sample()
-        return actions
+    def reset_parameters(self):
+        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc3.weight.data.uniform_(*hidden_init(self.fc3))
+        self.fc4.weight.data.uniform_(*hidden_init(self.fc4))
+        self.fc5.weight.data.uniform_(-3e-3, 3e-3)
+
+    def forward(self, state):
+        """Build an actor (policy) network that maps states -> actions."""
+        # only the first layer has batch normalization
+        x = F.relu(self.fc1(self.bn(state)))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = F.relu(self.fc4(x))
+
+        return torch.tanh(self.fc5(x))
 
 
 class Critic(nn.Module):
-    """Critic Model."""
+    """Critic (Value) Model."""
 
-    def __init__(self, full_state_size, full_action_size, fc1_units=64, fc2_units=64):
+    def __init__(self, state_size, action_size, num_agent, fc_units=256, fc_units1=128, fc_units2=128, fc_units3=64):
         """Initialize parameters and build model.
         Params
         ======
             state_size (int): Dimension of each state
             action_size (int): Dimension of each action
             seed (int): Random seed
+            fcs1_units (int): Number of nodes in the first hidden layer
+            fc2_units (int): Number of nodes in the second hidden layer
         """
-        super().__init__()
-        self.fc1 = nn.Linear(full_state_size + full_action_size, fc1_units)
-        self.fc2 = nn.Linear(fc1_units, fc2_units)
-        self.critic_fc = nn.Linear(fc2_units, 1)
+        super(Critic, self).__init__()
+        #self.seed = torch.manual_seed(seed)
+        # only the first layer has batch normalization
+        self.bn = nn.BatchNorm1d(state_size * num_agent)
+        self.bn1 = nn.BatchNorm1d(fc_units)
+        self.bn2 = nn.BatchNorm1d(fc_units1)
+        self.bn3 = nn.BatchNorm1d(fc_units2)
+        self.bn4 = nn.BatchNorm1d(fc_units3)
 
-    def forward(self, states, actions):
-        """Build a network that maps states, actions -> q values"""
-        x = torch.cat([states, actions], dim=1).to(DEVICE)
-        h = swish(self.fc1(x))
-        h = swish(self.fc2(h))
-        q_values = self.critic_fc(h).squeeze(-1)
+        self.fc1 = nn.Linear((state_size + action_size) * num_agent, fc_units)
+        self.fc2 = nn.Linear(fc_units, fc_units1)
+        self.fc3 = nn.Linear(fc_units1, fc_units2)
+        self.fc4 = nn.Linear(fc_units2, fc_units3)
+        self.fc5 = nn.Linear(fc_units3, 1)
 
-        return q_values
+        self.reset_parameters()
+
+    def reset_parameters(self):
+
+        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+        self.fc3.weight.data.uniform_(*hidden_init(self.fc3))
+        self.fc4.weight.data.uniform_(*hidden_init(self.fc4))
+        self.fc5.weight.data.uniform_(-3e-3, 3e-3)
+
+    def forward(self, state, action):
+        """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
+
+        x = torch.cat((self.bn(state), action), dim=1)
+        # only the first layer has batch normalization
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = F.relu(self.fc4(x))
+
+        return self.fc5(x).squeeze(-1)
