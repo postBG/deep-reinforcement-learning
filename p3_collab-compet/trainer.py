@@ -7,7 +7,7 @@ from collections import deque
 import numpy as np
 import torch
 
-from buffer import ReplayBuffer
+from memory import ReplayBuffer
 from utils import to_tensor, raw_score_plotter, plotter
 
 

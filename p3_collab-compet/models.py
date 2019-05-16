@@ -8,13 +8,8 @@ import torch.nn.functional as F
 def hidden_init(layer):
     fan_in = layer.weight.data.size()[0]
     lim = 1. / np.sqrt(fan_in)
-    return (-lim, lim)
+    return -lim, lim
 
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-# The model with only 1 batchnorm layer performed better for some reason.
 
 class Actor(nn.Module):
     """Actor (Policy) Model."""
@@ -30,9 +25,7 @@ class Actor(nn.Module):
             fc2_units (int): Number of nodes in second hidden layer
         """
         super(Actor, self).__init__()
-        # self.seed = torch.manual_seed(seed)
 
-        # only the first layer has batch normalization
         self.bn = nn.BatchNorm1d(state_size)
         self.bn1 = nn.BatchNorm1d(fc_units)
         self.bn2 = nn.BatchNorm1d(fc_units1)

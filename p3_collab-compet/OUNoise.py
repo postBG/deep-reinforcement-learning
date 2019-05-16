@@ -6,8 +6,8 @@ from utils import to_tensor
 
 class OUNoise:
 
-    def __init__(self, actions_size, scale=0.1, mu=0, theta=0.15, sigma=0.2):
-        self.action_dimension = actions_size
+    def __init__(self, action_size, scale=0.1, mu=0, theta=0.15, sigma=0.2):
+        self.action_dimension = action_size
         self.scale = scale
         self.mu = mu
         self.theta = theta
