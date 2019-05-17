@@ -39,7 +39,7 @@ class Trainer(object):
 
     def train(self):
         # initialize memory buffer
-        buffer = ReplayBuffer(int(500000), self.batch_size, 0)
+        buffer = ReplayBuffer(int(500000), self.batch_size, self.num_agents, 0)
 
         # use keep_awake to keep workspace from disconnecting
         for episode in range(self.number_of_episodes):
