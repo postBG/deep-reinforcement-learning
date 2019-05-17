@@ -1,5 +1,5 @@
 import random
-from collections import deque, namedtuple
+from collections import deque
 
 import torch
 
@@ -14,21 +14,14 @@ def reshape_to_iter_by_agents_2d(tensors, num_agents):
     return torch.stack([tensors[:, i] for i in range(num_agents)])
 
 
-class ReplayBuffer:
+class ReplayBuffer(object):
     """Fixed-size buffer to store experience tuples."""
 
     def __init__(self, buffer_size, batch_size, num_agents, seed=0):
-        """Initialize a ReplayBuffer object.
-        Params
-        ======
-            buffer_size (int): maximum size of buffer
-            batch_size (int): size of each training batch
-        """
+        super().__init__()
         self.deque = deque(maxlen=buffer_size)
         self.batch_size = batch_size
         self.num_agents = num_agents
-        self.experience = namedtuple("Experience", field_names=["state", "full_state", "action", "reward", "next_state",
-                                                                "full_next_state", "done"])
         self.seed = random.seed(seed)
 
     def add(self, transition):

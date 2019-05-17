@@ -47,7 +47,7 @@ class Trainer(object):
 
             agent_episode_rewards = [0, 0]
 
-            for agent in self.maddpg.maddpg_agent:
+            for agent in self.maddpg.ddpg_agents:
                 agent.noise.reset()
 
             for episode_t in range(self.max_episode_len):
@@ -106,10 +106,10 @@ class Trainer(object):
                 save_dict_list = []
 
                 for i in range(self.num_agents):
-                    save_dict = {'actor_params': self.maddpg.maddpg_agent[i].actor.state_dict(),
-                                 'actor_optim_params': self.maddpg.maddpg_agent[i].actor_optimizer.state_dict(),
-                                 'critic_params': self.maddpg.maddpg_agent[i].critic.state_dict(),
-                                 'critic_optim_params': self.maddpg.maddpg_agent[i].critic_optimizer.state_dict()}
+                    save_dict = {'actor_params': self.maddpg.ddpg_agents[i].actor.state_dict(),
+                                 'actor_optim_params': self.maddpg.ddpg_agents[i].actor_optimizer.state_dict(),
+                                 'critic_params': self.maddpg.ddpg_agents[i].critic.state_dict(),
+                                 'critic_optim_params': self.maddpg.ddpg_agents[i].critic_optimizer.state_dict()}
                     save_dict_list.append(save_dict)
 
                     torch.save(save_dict_list,

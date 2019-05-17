@@ -15,15 +15,6 @@ class Actor(nn.Module):
     """Actor (Policy) Model."""
 
     def __init__(self, state_size, action_size, fc_units=256, fc_units1=128, fc_units2=128, fc_units3=64):
-        """Initialize parameters and build model.
-        Params
-        ======
-            state_size (int): Dimension of each state
-            action_size (int): Dimension of each action
-            seed (int): Random seed
-            fc1_units (int): Number of nodes in first hidden layer
-            fc2_units (int): Number of nodes in second hidden layer
-        """
         super(Actor, self).__init__()
 
         self.bn = nn.BatchNorm1d(state_size)
@@ -62,15 +53,6 @@ class Critic(nn.Module):
     """Critic (Value) Model."""
 
     def __init__(self, state_size, action_size, num_agent, fc_units=256, fc_units1=128, fc_units2=128, fc_units3=64):
-        """Initialize parameters and build model.
-        Params
-        ======
-            state_size (int): Dimension of each state
-            action_size (int): Dimension of each action
-            seed (int): Random seed
-            fcs1_units (int): Number of nodes in the first hidden layer
-            fc2_units (int): Number of nodes in the second hidden layer
-        """
         super(Critic, self).__init__()
         # self.seed = torch.manual_seed(seed)
         # only the first layer has batch normalization
