@@ -109,8 +109,7 @@ class Trainer(object):
                                  'critic_optim_params': self.maddpg.ddpg_agents[i].critic_optimizer.state_dict()}
                     save_dict_list.append(save_dict)
 
-                    torch.save(save_dict_list,
-                               os.path.join(self.ckpt, 'episode-{}.pt'.format(episode)))
+                    torch.save(save_dict_list, self.ckpt)
 
                 raw_score_plotter(self.episode_rewards)
                 plotter('Tennis', len(self.episode_rewards), self.avg_rewards, self.threshold)

@@ -1,6 +1,4 @@
-# main function that sets up environments
-# perform training loop
-
+import random
 import numpy as np
 import torch
 from unityagents import UnityEnvironment
@@ -24,12 +22,12 @@ def main():
         'EPISODE_PER_UPDATE': 2,
         'PRINT_PERIOD': 5,
         'CKPT': 'model.pth',
-        'SEED': 1,
+        'SEED': 96170,
         'HIDDEN_UNITS': 128,
         'NOISE': 1.0,
         'NOISE_REDUCTION': 0.9999
     }
-
+    print(options)
     seeding()
     # number of parallel agents
 
