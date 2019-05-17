@@ -1,6 +1,3 @@
-# main function that sets up environments
-# perform training loop
-
 import os
 from collections import deque
 

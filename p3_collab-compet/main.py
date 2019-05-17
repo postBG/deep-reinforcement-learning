@@ -1,17 +1,12 @@
 # main function that sets up environments
 # perform training loop
 
-from maddpg import MADDPG
-from memory import ReplayBuffer
-import torch
 import numpy as np
-import os
+import torch
 from unityagents import UnityEnvironment
 
+from maddpg import MADDPG
 from trainer import Trainer
-from utils import raw_score_plotter, plotter
-
-from collections import deque
 
 
 def seeding(seed=1):
@@ -59,10 +54,6 @@ def main():
 
     trainer = Trainer(env, maddpg, num_agents, options, brain_name)
     trainer.train()
-
-
-
-
 
 
 if __name__ == '__main__':

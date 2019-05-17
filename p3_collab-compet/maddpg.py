@@ -1,7 +1,3 @@
-# main code that contains the neural network setup
-# policy + critic updates
-# see ddpg.py for other details in the network
-
 import torch
 import torch.nn as nn
 
